@@ -1,25 +1,101 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research - Course Assignment 1"
+author: "DK"
+date: "2/6/2022"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+Read csv file:
+
+```{r}
+library(lubridate)
+df <- read.csv("activity.csv")
+df$date <- ymd(df$date)
+head(df)
+str(df)
+```
+  
+  
+Calculate average number of steps per day, output result in a histogram, calculate mean and median number of steps taken each day
+
+```{r}
+library(dplyr)
+steps_day <- df %>% group_by(date) %>% summarize(stepsPerDay = sum(steps, na.rm = TRUE))
+steps_day <- as.data.frame(steps_day)
+
+hist(steps_day$stepsPerDay, col="red", xlab = "Steps by day", main = "Histogram of steps by day")
+dev.copy(png,height = 480, width = 480, file= "plot1.png")
+dev.off()
+
+mean_steps <- mean(steps_day$stepsPerDay, na.rm  = TRUE)
+median_steps <- median(steps_day$stepsPerDay, na.rm = TRUE)
+
+```
+Mean for daily steps is `r mean_steps`.  
+Median for daily steps is `r median_steps`.  
 
 
+Calculate avg number of steps in the 5 min interval, output result in a time series chart
+```{r}
+library(dplyr)
+steps_interval <- df %>% group_by(interval) %>% summarize(avgStepsInt = mean(steps,na.rm=TRUE))
+plot(steps_interval$interval,steps_interval$avgStepsInt, type = "l", xlab = "Interval", ylab = "Avg Daily Steps")
+dev.copy(png,height = 480, width = 480, file= "plot2.png")
+dev.off()
+maxStepsInterval <- steps_interval[steps_interval$avgStepsInt == max(steps_interval$avgStepsInt),1]
 
-## What is mean total number of steps taken per day?
+```
+
+Interval with max daily average number of steps is `r maxStepsInterval`.
 
 
+Calculate and report the number of NA data in the dataset
+```{r}
+library(dplyr)
+numberNAValues <- sum(is.na(df[,1]))
+```
+Number of intervals with NA data is `r numberNAValues`.  
 
-## What is the average daily activity pattern?
+
+Impute daily median values for NA
+```{r}
+
+df_upd <- df %>% mutate(steps_upd = ifelse(is.na(steps), mean(steps, na.rm = TRUE), steps))
+
+steps_day_upd <- df_upd %>% group_by(date) %>% summarize(stepsPerDay = sum(steps, na.rm = TRUE))
+
+mean_upd <- mean(steps_day_upd$stepsPerDay)
+median_upd <- median(steps_day_upd$stepsPerDay)
+
+hist(steps_day_upd$stepsPerDay, col="red", xlab = "Steps by day", main = "Histogram of steps by day with imputed values")
+
+dev.copy(png,height = 480, width = 480, file= "plot3.png")
+dev.off()
+
+```
+
+Updated mean for daily steps is `r mean_upd`.  
+Updated median for daily steps is `r median_upd`.  
 
 
+Create a two-level factor variable for weekdays and weekends
+```{r}
+library(ggplot2)
 
-## Imputing missing values
+df_upd1 <- df_upd %>% mutate(weekday = weekdays(date))
 
+df_upd1 <- df_upd1 %>% mutate(DayOfWeek = ifelse(weekday %in% c("Saturday","Sunday"), "weekend","weekday"))
+df_upd1$DayOfWeek <- as.factor(df_upd1$DayOfWeek)
 
+steps_interval_upd <- df_upd1 %>% group_by(DayOfWeek,interval) %>% summarize(avgStepsInt = mean(steps,na.rm=TRUE))
 
-## Are there differences in activity patterns between weekdays and weekends?
+ggplot(steps_interval_upd,aes(interval,avgStepsInt,col=DayOfWeek) )+geom_line() + labs(x = "Interval", y = "Avg Steps Per Interval")
+
+dev.copy(png,height = 480, width = 480, file= "plot4.png")
+dev.off()
+
+```
